@@ -194,7 +194,7 @@
       {x:286,y:150,w:217,h:46},
       {x:286,y:218,w:217,h:48}
     ],
-    playStyle:{x:49,y:368,w:515,h:451},
+    playStyle:{x:49,y:322,w:515,h:499},
     job:{x:1151,y:107,w:435,h:522},
     playTime1:{x:1298,y:740,w:270,h:31},
     playTime2:{x:1298,y:780,w:270,h:31},
@@ -397,41 +397,92 @@
     }
   }
 
-  function measureTag(text){
-    ctx.save();ctx.font='600 18px "Segoe UI","Noto Sans JP",sans-serif';
-    const w=Math.ceil(ctx.measureText(text).width)+48;ctx.restore();
-    return Math.max(92,Math.min(260,w));
+  function playStyleRightEdge(y,h){
+    // PLAY STYLE欄の右上は斜めなので、各行の高さに応じて安全な右端を変える。
+    const midY=y+h/2;
+    const slopeStart={x:374,y:322};
+    const slopeEnd={x:557,y:525};
+    if(midY<=slopeStart.y) return slopeStart.x;
+    if(midY>=slopeEnd.y) return slopeEnd.x;
+    const t=(midY-slopeStart.y)/(slopeEnd.y-slopeStart.y);
+    return slopeStart.x+(slopeEnd.x-slopeStart.x)*t;
   }
 
-  function drawTag(text,x,y,width,active=false){
-    const h=40,leftW=28,rightW=28;
+  function measureTag(text,fontSize,h){
+    ctx.save();
+    ctx.font=`600 ${fontSize}px "Segoe UI","Noto Sans JP",sans-serif`;
+    const sidePadding=Math.max(28,h*.9);
+    const w=Math.ceil(ctx.measureText(text).width)+sidePadding;
+    ctx.restore();
+    return Math.max(h*2.05,Math.min(245,w));
+  }
+
+  function createPlayStyleLayout(items,config){
+    const area=AREAS.playStyle;
+    const {h,fontSize,gapX,gapY}=config;
+    const placed=[];
+    let x=area.x,y=area.y;
+
+    for(const text of items){
+      const width=measureTag(text,fontSize,h);
+      let right=playStyleRightEdge(y,h);
+      if(x+width>right){
+        x=area.x;
+        y+=h+gapY;
+        right=playStyleRightEdge(y,h);
+      }
+      if(y+h>area.y+area.h || x+width>right) return null;
+      placed.push({text,x,y,width});
+      x+=width+gapX;
+    }
+    return placed;
+  }
+
+  function choosePlayStyleLayout(items){
+    // 選択数が少ないときは大きく、全40項目でも欄内へ収まるまで段階的に縮小する。
+    const candidates=[
+      {h:40,fontSize:18,gapX:8,gapY:9},
+      {h:37,fontSize:17,gapX:7,gapY:8},
+      {h:34,fontSize:16,gapX:7,gapY:7},
+      {h:31,fontSize:15,gapX:6,gapY:6},
+      {h:29,fontSize:14,gapX:5,gapY:5},
+      {h:27,fontSize:13,gapX:5,gapY:4},
+      {h:25,fontSize:12,gapX:4,gapY:4}
+    ];
+    for(const config of candidates){
+      const placed=createPlayStyleLayout(items,config);
+      if(placed) return {placed,config};
+    }
+    return {placed:[],config:candidates[candidates.length-1]};
+  }
+
+  function drawTag(text,x,y,width,active=false,config={h:40,fontSize:18}){
+    const h=config.h;
+    const fontSize=config.fontSize;
+    const leftW=Math.max(17,Math.round(h*.7));
+    const rightW=leftW;
     const left=tagImages[active?'left-active':'left'];
     const center=tagImages[active?'center-active':'center'];
     const right=tagImages[active?'right-active':'right'];
     if(!left||!center||!right) return;
     ctx.drawImage(left,x,y,leftW,h);
-    ctx.drawImage(center,x+leftW,y,width-leftW-rightW,h);
+    ctx.drawImage(center,x+leftW,y,Math.max(1,width-leftW-rightW),h);
     ctx.drawImage(right,x+width-rightW,y,rightW,h);
     ctx.save();
-    ctx.font='600 18px "Segoe UI","Noto Sans JP",sans-serif';
+    ctx.font=`600 ${fontSize}px "Segoe UI","Noto Sans JP",sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillStyle='#eef4ff';ctx.shadowColor='rgba(80,180,255,.8)';ctx.shadowBlur=7;
+    ctx.fillStyle='#eef4ff';ctx.shadowColor='rgba(80,180,255,.8)';ctx.shadowBlur=Math.max(4,h*.17);
     let output=text;
-    while(ctx.measureText(output).width>width-34 && output.length>2) output=output.slice(0,-2)+'…';
+    const textLimit=width-Math.max(24,h*.8);
+    while(ctx.measureText(output).width>textLimit && output.length>2) output=output.slice(0,-2)+'…';
     ctx.fillText(output,x+width/2,y+h/2+.5);
     ctx.restore();
   }
 
   function drawPlayStyles(){
-    const area=AREAS.playStyle;
-    let x=area.x,y=area.y;
-    const gapX=8,gapY=9;
-    for(const text of state.selectedStyles){
-      const width=measureTag(text);
-      if(x+width>area.x+area.w){x=area.x;y+=40+gapY;}
-      if(y+40>area.y+area.h) break;
-      drawTag(text,x,y,width,false);
-      x+=width+gapX;
+    const {placed,config}=choosePlayStyleLayout(state.selectedStyles);
+    for(const item of placed){
+      drawTag(item.text,item.x,item.y,item.width,false,config);
     }
   }
 
