@@ -194,8 +194,10 @@
       {x:286,y:150,w:217,h:46},
       {x:286,y:218,w:217,h:48}
     ],
-    playStyle:{x:49,y:322,w:515,h:499},
-    job:{x:1151,y:107,w:435,h:522},
+    // PLAY STYLEは見出し文字の下から使用する。
+    playStyle:{x:49,y:374,w:515,h:447},
+    // JOBは見出しと外枠を避けた実配置範囲。
+    job:{x:1168,y:154,w:401,h:452},
     playTime1:{x:1298,y:740,w:270,h:31},
     playTime2:{x:1298,y:780,w:270,h:31},
     homeWorld:{x:194,y:872,w:276,h:34},
@@ -371,8 +373,9 @@
     let rows=Math.ceil(n/cols);
     while(cols*rows<n) rows++;
     if(n===1){cols=1;rows=1;}
-    const gap=n>32?5:n>20?8:12;
-    const maxIcon=n>40?44:n>32?48:n>20?54:n>8?62:72;
+    // 多数選択時もJOB欄が空虚に見えないよう、32ジョブでは約60pxで面を広く使う。
+    const gap=n>32?4:n>20?6:n>8?9:12;
+    const maxIcon=n>40?48:n>32?54:n>20?60:n>8?66:76;
     const cellW=(area.w-gap*(cols-1))/cols;
     const cellH=(area.h-gap*(rows-1))/rows;
     const iconSize=Math.min(maxIcon,cellW,cellH);
@@ -400,7 +403,8 @@
   function playStyleRightEdge(y,h){
     // PLAY STYLE欄の右上は斜めなので、各行の高さに応じて安全な右端を変える。
     const midY=y+h/2;
-    const slopeStart={x:374,y:322};
+    // タイトル直下から斜辺までの安全な右端。見出し「PLAY STYLE」とは重ならない。
+    const slopeStart={x:421,y:374};
     const slopeEnd={x:557,y:525};
     if(midY<=slopeStart.y) return slopeStart.x;
     if(midY>=slopeEnd.y) return slopeEnd.x;
@@ -441,13 +445,13 @@
   function choosePlayStyleLayout(items){
     // 選択数が少ないときは大きく、全40項目でも欄内へ収まるまで段階的に縮小する。
     const candidates=[
-      {h:40,fontSize:18,gapX:8,gapY:9},
-      {h:37,fontSize:17,gapX:7,gapY:8},
-      {h:34,fontSize:16,gapX:7,gapY:7},
-      {h:31,fontSize:15,gapX:6,gapY:6},
+      {h:38,fontSize:17,gapX:8,gapY:8},
+      {h:35,fontSize:16,gapX:7,gapY:7},
+      {h:32,fontSize:15,gapX:6,gapY:6},
       {h:29,fontSize:14,gapX:5,gapY:5},
       {h:27,fontSize:13,gapX:5,gapY:4},
-      {h:25,fontSize:12,gapX:4,gapY:4}
+      {h:25,fontSize:12,gapX:4,gapY:4},
+      {h:23,fontSize:11,gapX:4,gapY:3}
     ];
     for(const config of candidates){
       const placed=createPlayStyleLayout(items,config);
