@@ -368,28 +368,55 @@
     const n=state.selectedJobs.length;
     if(!n) return;
     const area=AREAS.job;
-    const aspect=area.w/area.h;
-    let cols=Math.ceil(Math.sqrt(n*aspect));
-    let rows=Math.ceil(n/cols);
-    while(cols*rows<n) rows++;
-    if(n===1){cols=1;rows=1;}
-    // 多数選択時もJOB欄が空虚に見えないよう、32ジョブでは約60pxで面を広く使う。
-    const gap=n>32?4:n>20?6:n>8?9:12;
-    const maxIcon=n>40?48:n>32?54:n>20?60:n>8?66:76;
-    const cellW=(area.w-gap*(cols-1))/cols;
-    const cellH=(area.h-gap*(rows-1))/rows;
-    const iconSize=Math.min(maxIcon,cellW,cellH);
-    const gridW=cols*iconSize+(cols-1)*gap;
-    const gridH=rows*iconSize+(rows-1)*gap;
-    const ox=area.x+(area.w-gridW)/2;
-    const oy=area.y+(area.h-gridH)/2;
+
+    let cols,rows,iconSize;
+    if(n<=8){
+      cols=Math.ceil(Math.sqrt(n));
+      rows=Math.ceil(n/cols);
+      iconSize=76;
+    }else if(n<=20){
+      cols=Math.ceil(Math.sqrt(n*area.w/area.h));
+      rows=Math.ceil(n/cols);
+      iconSize=68;
+    }else if(n<=36){
+      // 32ジョブ時は6×6の盤面全体を使い、中央4枠だけを空ける。
+      // アイコン同士を詰めて中央へ固めず、JOB欄の上下左右へ均等に広げる。
+      cols=6;
+      rows=6;
+      iconSize=61;
+    }else{
+      cols=7;
+      rows=6;
+      iconSize=54;
+    }
+
     const cells=rectangularSpiralCells(cols,rows);
+    const usedCells=cells.slice(0,n);
+
+    // 少数時はまとまりよく、多数時は欄全体へ分散させる。
+    let stepX,stepY,ox,oy;
+    if(n>20){
+      stepX=cols===1?0:(area.w-iconSize)/(cols-1);
+      stepY=rows===1?0:(area.h-iconSize)/(rows-1);
+      ox=area.x;
+      oy=area.y;
+    }else{
+      const gap=n>8?10:14;
+      stepX=iconSize+gap;
+      stepY=iconSize+gap;
+      const gridW=iconSize+(cols-1)*stepX;
+      const gridH=iconSize+(rows-1)*stepY;
+      ox=area.x+(area.w-gridW)/2;
+      oy=area.y+(area.h-gridH)/2;
+    }
+
     for(let i=0;i<n;i++){
       const slug=state.selectedJobs[i];
       const img=await loadImage(`assets/job-icons/${slug}.png`).catch(()=>null);
       if(!img) continue;
-      const [cx,cy]=cells[i];
-      const x=ox+cx*(iconSize+gap),y=oy+cy*(iconSize+gap);
+      const [cx,cy]=usedCells[i];
+      const x=ox+cx*stepX;
+      const y=oy+cy*stepY;
       drawJobIconFrame(x,y,iconSize,false);
       const pad=iconSize*.15;
       ctx.save();
