@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FF14 Cyberpunk Character Card Generator</title>
+<style>
+  :root{
+    color-scheme:dark;
+    --bg:#050611;
+    --panel:#0b0d1d;
+    --panel2:#11132a;
+    --line:#5b55ff;
+    --cyan:#15cfff;
+    --pink:#df36ff;
+    --text:#f2f3ff;
+    --muted:#9ea4c7;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-width:320px;
+    background:
+      radial-gradient(circle at 20% 0%,rgba(87,36,155,.22),transparent 34rem),
+      radial-gradient(circle at 80% 10%,rgba(0,132,255,.15),transparent 38rem),
+      #03040a;
+    color:var(--text);
+    font-family:"Segoe UI","Noto Sans JP",sans-serif;
+  }
+  button,input,select,textarea{font:inherit}
+  .app{width:min(1780px,100%);margin:0 auto;padding:22px}
+  h1{font-size:clamp(22px,2vw,32px);margin:0 0 6px;letter-spacing:.06em}
+  .lead{margin:0 0 18px;color:var(--muted)}
+  .preview-shell{
+    position:relative;
+    border:1px solid rgba(105,96,255,.45);
+    background:#000;
+    box-shadow:0 0 32px rgba(64,58,255,.18);
+    overflow:hidden;
+  }
+  #cardCanvas{display:block;width:100%;height:auto;aspect-ratio:1672/941;touch-action:none;cursor:grab}
+  #cardCanvas.dragging{cursor:grabbing}
+  .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0 22px}
+  button,.file-button{
+    border:1px solid rgba(72,209,255,.55);
+    background:linear-gradient(180deg,rgba(23,36,76,.95),rgba(8,12,30,.95));
+    color:#fff;
+    padding:10px 14px;
+    border-radius:6px;
+    cursor:pointer;
+    box-shadow:inset 0 0 18px rgba(47,84,255,.12);
+  }
+  button:hover,.file-button:hover{border-color:#a15cff;box-shadow:0 0 14px rgba(120,70,255,.25)}
+  .file-button input{display:none}
+  .controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+  fieldset{
+    min-width:0;
+    margin:0;
+    padding:16px;
+    border:1px solid rgba(100,83,255,.4);
+    border-radius:8px;
+    background:linear-gradient(180deg,rgba(12,14,35,.96),rgba(6,8,21,.96));
+  }
+  legend{padding:0 9px;color:#dfe5ff;letter-spacing:.08em}
+  .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  label.form{display:grid;gap:6px;color:#cfd4f0;font-size:14px}
+  label.form.full{grid-column:1/-1}
+  input[type="text"],select{
+    width:100%;border:1px solid rgba(107,94,255,.38);border-radius:5px;background:#07091a;color:#fff;padding:9px 10px;outline:none
+  }
+  input[type="text"]:focus,select:focus{border-color:#27cfff;box-shadow:0 0 0 2px rgba(39,207,255,.1)}
+  .range-row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+  input[type="range"]{width:100%}
+  .check-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+  .check{
+    display:flex;align-items:center;gap:7px;min-width:0;padding:7px 8px;border:1px solid rgba(108,93,255,.22);border-radius:5px;background:rgba(7,9,28,.82);font-size:13px
+  }
+  .check span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .subheading{margin:14px 0 8px;color:#aeb7e8;font-size:13px;letter-spacing:.08em}
+  .selected-list{display:flex;flex-wrap:wrap;gap:8px;min-height:46px;padding:10px;border:1px dashed rgba(71,203,255,.35);border-radius:6px;background:rgba(3,5,17,.7)}
+  .tag-chip{padding:7px 10px;border:1px solid rgba(96,207,255,.5);background:#0c1430;border-radius:4px;cursor:grab;user-select:none}
+  .tag-chip.dragging{opacity:.45}
+  .note{font-size:12px;color:var(--muted);margin-top:8px}
+  .span-2{grid-column:1/-1}
+  @media(max-width:1050px){.controls{grid-template-columns:1fr}.check-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.span-2{grid-column:auto}}
+  @media(max-width:650px){.app{padding:12px}.grid{grid-template-columns:1fr}.check-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>FF14 CYBERPUNK CHARACTER CARD</h1>
+  <p class="lead">画像・ジョブ・プレイスタイル・各種情報を設定し、完成カードをPNGで保存します。</p>
+
+  <div class="preview-shell">
+    <canvas id="cardCanvas" width="1672" height="941" aria-label="キャラクターカードプレビュー"></canvas>
+  </div>
+
+  <div class="toolbar">
+    <label class="file-button">キャラクター画像を選択<input id="characterFile" type="file" accept="image/*"></label>
+    <button id="resetCharacter" type="button">画像位置をリセット</button>
+    <button id="downloadPng" type="button">PNG保存</button>
+  </div>
+
+  <div class="controls">
+    <fieldset>
+      <legend>キャラクター画像</legend>
+      <div class="grid">
+        <label class="form full">拡大率
+          <div class="range-row"><input id="characterScale" type="range" min="0.3" max="4" step="0.01" value="1"><output id="scaleOutput">100%</output></div>
+        </label>
+        <label class="form full">明るさ
+          <div class="range-row"><input id="characterBrightness" type="range" min="40" max="150" step="1" value="100"><output id="brightnessOutput">100%</output></div>
+        </label>
+      </div>
+      <p class="note">プレビュー中央の画像をドラッグすると位置を調整できます。マウスホイールでも拡大・縮小できます。</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>基本情報</legend>
+      <div class="grid">
+        <label class="form">メインジョブ<select id="mainJob"><option value="">未選択</option></select></label>
+        <label class="form">1行目<input id="info1" type="text" maxlength="28" placeholder="例：種族"></label>
+        <label class="form">2行目<input id="info2" type="text" maxlength="28" placeholder="例：名前"></label>
+        <label class="form">3行目<input id="info3" type="text" maxlength="28" placeholder="例：フリーカンパニー"></label>
+      </div>
+    </fieldset>
+
+    <fieldset class="span-2">
+      <legend>JOB</legend>
+      <div id="jobChecks" class="check-grid"></div>
+      <p class="note">選択した順番を保持し、選択数に合わせてJOB欄内へ長方形スパイラル状に自動配置します。</p>
+    </fieldset>
+
+    <fieldset class="span-2">
+      <legend>PLAY STYLE</legend>
+      <div id="playStyleChecks" class="check-grid"></div>
+      <div class="subheading">表示順（ドラッグで並べ替え）</div>
+      <div id="selectedPlayStyles" class="selected-list"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>PLAY TIME</legend>
+      <div class="grid">
+        <label class="form">時間帯<input id="playTime" type="text" maxlength="24" placeholder="例：夜・深夜"></label>
+        <label class="form">ログイン傾向<input id="loginTrend" type="text" maxlength="24" placeholder="例：不定期"></label>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>フッター</legend>
+      <div class="grid">
+        <label class="form">HOME WORLD<input id="homeWorld" type="text" maxlength="24" placeholder="例：Ifrit"></label>
+        <label class="form">DC<input id="dataCenter" type="text" maxlength="24" placeholder="例：Gaia"></label>
+        <label class="form full">作者・権利表記<input id="credit" type="text" maxlength="90" value="Created by 鱗の旅人 / FINAL FANTASY XIV © SQUARE ENIX"></label>
+      </div>
+    </fieldset>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const W = 1672, H = 941;
+  const canvas = document.getElementById('cardCanvas');
+  const ctx = canvas.getContext('2d');
+  const template = new Image();
+  template.src = 'assets/card-template.png';
+
+  const JOBS = [
+    ['paladin','Paladin'],['warrior','Warrior'],['dark-knight','Dark Knight'],['gunbreaker','Gunbreaker'],
+    ['white-mage','White Mage'],['scholar','Scholar'],['astrologian','Astrologian'],['sage','Sage'],
+    ['monk','Monk'],['dragoon','Dragoon'],['ninja','Ninja'],['samurai','Samurai'],['reaper','Reaper'],['viper','Viper'],
+    ['bard','Bard'],['machinist','Machinist'],['dancer','Dancer'],
+    ['black-mage','Black Mage'],['summoner','Summoner'],['red-mage','Red Mage'],['pictomancer','Pictomancer'],
+    ['carpenter','Carpenter'],['blacksmith','Blacksmith'],['armorer','Armorer'],['goldsmith','Goldsmith'],
+    ['leatherworker','Leatherworker'],['weaver','Weaver'],['alchemist','Alchemist'],['culinarian','Culinarian'],
+    ['miner','Miner'],['botanist','Botanist'],['fisher','Fisher']
+  ];
+
+  const PLAY_STYLES = [
+    'メインストーリー','サブクエスト','カジュアル','戦闘','高難度','レイド','討滅戦','アライアンスレイド',
+    'PvP','フロントライン','クリスタルコンフリクト','ディープダンジョン','ヴァリアントダンジョン','トレジャーハント',
+    'ギャザラー','クラフター','釣り','金策','ハウジング','ミラージュプリズム','グループポーズ','SS撮影',
+    'スタジオ巡り','ユーザーイベント','RP','演奏','交流','チャット中心','ソロ中心','固定活動','野良中心',
+    '初心者支援','まったり','復帰勢','毎日ログイン','週末中心','コンテンツルーレット','マウント集め','ミニオン集め','アチーブメント'
+  ];
+
+  const AREAS = {
+    character:{x:548,y:31,w:556,h:814},
+    mainJob:{x:59,y:74,w:204,h:203},
+    info:[
+      {x:286,y:82,w:217,h:46},
+      {x:286,y:150,w:217,h:46},
+      {x:286,y:218,w:217,h:48}
+    ],
+    playStyle:{x:49,y:368,w:515,h:451},
+    job:{x:1151,y:107,w:435,h:522},
+    playTime1:{x:1298,y:740,w:270,h:31},
+    playTime2:{x:1298,y:780,w:270,h:31},
+    homeWorld:{x:194,y:872,w:276,h:34},
+    dc:{x:588,y:872,w:274,h:34}
+  };
+
+  const state = {
+    character:null,
+    characterX:0,
+    characterY:0,
+    characterScale:1,
+    brightness:100,
+    selectedJobs:[],
+    selectedStyles:[],
+    mainJob:'',
+    dragStyle:null
+  };
+
+  const imageCache = new Map();
+  const tagImages = {};
+  const tagNames = ['left','center','right','left-active','center-active','right-active','accent-left','accent-right'];
+
+  function loadImage(src){
+    if(imageCache.has(src)) return imageCache.get(src);
+    const p = new Promise((resolve,reject)=>{
+      const img = new Image();
+      img.onload=()=>resolve(img);
+      img.onerror=()=>reject(new Error('画像を読み込めませんでした: '+src));
+      img.src=src;
+    });
+    imageCache.set(src,p);
+    return p;
+  }
+
+  async function preload(){
+    await Promise.all(JOBS.map(([slug])=>loadImage(`assets/job-icons/${slug}.png`).catch(()=>null)));
+    await Promise.all(tagNames.map(async name=>{
+      const img=await loadImage(`assets/tags/tag-${name}.png`);
+      tagImages[name]=img;
+    }));
+  }
+
+  function fitScale(img, area){
+    return Math.max(area.w/img.width, area.h/img.height);
+  }
+
+  function resetCharacter(){
+    if(!state.character) return;
+    state.characterScale=fitScale(state.character,AREAS.character);
+    state.characterX=AREAS.character.x+AREAS.character.w/2;
+    state.characterY=AREAS.character.y+AREAS.character.h/2;
+    document.getElementById('characterScale').value=state.characterScale;
+    updateOutputs();
+    draw();
+  }
+
+  function clipChamferedRect(c,a,cut=12){
+    c.beginPath();
+    c.moveTo(a.x+cut,a.y);
+    c.lineTo(a.x+a.w-cut,a.y);
+    c.lineTo(a.x+a.w,a.y+cut);
+    c.lineTo(a.x+a.w,a.y+a.h-cut);
+    c.lineTo(a.x+a.w-cut,a.y+a.h);
+    c.lineTo(a.x+cut,a.y+a.h);
+    c.lineTo(a.x,a.y+a.h-cut);
+    c.lineTo(a.x,a.y+cut);
+    c.closePath();
+    c.clip();
+  }
+
+  function drawCharacter(){
+    if(!state.character) return;
+    ctx.save();
+    clipChamferedRect(ctx,{x:552,y:35,w:548,h:806},10);
+    ctx.filter=`brightness(${state.brightness}%)`;
+    const dw=state.character.width*state.characterScale;
+    const dh=state.character.height*state.characterScale;
+    ctx.drawImage(state.character,state.characterX-dw/2,state.characterY-dh/2,dw,dh);
+    ctx.restore();
+  }
+
+  function drawFittedText(text,area,opts={}){
+    if(!text) return;
+    const max=opts.max||24,min=opts.min||12;
+    let size=max;
+    ctx.save();
+    ctx.font=`${opts.weight||500} ${size}px "Segoe UI","Noto Sans JP",sans-serif`;
+    while(size>min && ctx.measureText(text).width>area.w-18){
+      size--;
+      ctx.font=`${opts.weight||500} ${size}px "Segoe UI","Noto Sans JP",sans-serif`;
+    }
+    ctx.textAlign=opts.align||'center';
+    ctx.textBaseline='middle';
+    ctx.fillStyle=opts.color||'#eef2ff';
+    ctx.shadowColor=opts.glow||'rgba(80,110,255,.6)';
+    ctx.shadowBlur=opts.shadowBlur??8;
+    const x=opts.align==='left'?area.x+9:area.x+area.w/2;
+    ctx.fillText(text,x,area.y+area.h/2);
+    ctx.restore();
+  }
+
+  function rectangularSpiralCells(cols,rows){
+    const cells=[];
+    let left=0,right=cols-1,top=0,bottom=rows-1;
+    while(left<=right && top<=bottom){
+      for(let x=left;x<=right;x++) cells.push([x,top]);
+      top++;
+      for(let y=top;y<=bottom;y++) cells.push([right,y]);
+      right--;
+      if(top<=bottom){for(let x=right;x>=left;x--) cells.push([x,bottom]);bottom--;}
+      if(left<=right){for(let y=bottom;y>=top;y--) cells.push([left,y]);left++;}
+    }
+    return cells;
+  }
+
+  async function drawJobs(){
+    const n=state.selectedJobs.length;
+    if(!n) return;
+    const area=AREAS.job;
+    const aspect=area.w/area.h;
+    let cols=Math.ceil(Math.sqrt(n*aspect));
+    let rows=Math.ceil(n/cols);
+    while(cols*rows<n) rows++;
+    if(n===1){cols=1;rows=1;}
+    const gap=n>32?5:n>20?8:12;
+    const maxIcon=n>40?44:n>32?48:n>20?54:n>8?62:72;
+    const cellW=(area.w-gap*(cols-1))/cols;
+    const cellH=(area.h-gap*(rows-1))/rows;
+    const iconSize=Math.min(maxIcon,cellW,cellH);
+    const gridW=cols*iconSize+(cols-1)*gap;
+    const gridH=rows*iconSize+(rows-1)*gap;
+    const ox=area.x+(area.w-gridW)/2;
+    const oy=area.y+(area.h-gridH)/2;
+    const cells=rectangularSpiralCells(cols,rows);
+    for(let i=0;i<n;i++){
+      const slug=state.selectedJobs[i];
+      const img=await loadImage(`assets/job-icons/${slug}.png`).catch(()=>null);
+      if(!img) continue;
+      const [cx,cy]=cells[i];
+      const x=ox+cx*(iconSize+gap),y=oy+cy*(iconSize+gap);
+      ctx.save();
+      ctx.shadowColor='rgba(52,140,255,.65)';ctx.shadowBlur=10;
+      ctx.drawImage(img,x,y,iconSize,iconSize);
+      ctx.restore();
+    }
+  }
+
+  function measureTag(text){
+    ctx.save();ctx.font='600 18px "Segoe UI","Noto Sans JP",sans-serif';
+    const w=Math.ceil(ctx.measureText(text).width)+48;ctx.restore();
+    return Math.max(92,Math.min(260,w));
+  }
+
+  function drawTag(text,x,y,width,active=false){
+    const h=40,leftW=28,rightW=28;
+    const left=tagImages[active?'left-active':'left'];
+    const center=tagImages[active?'center-active':'center'];
+    const right=tagImages[active?'right-active':'right'];
+    if(!left||!center||!right) return;
+    ctx.drawImage(left,x,y,leftW,h);
+    ctx.drawImage(center,x+leftW,y,width-leftW-rightW,h);
+    ctx.drawImage(right,x+width-rightW,y,rightW,h);
+    ctx.save();
+    ctx.font='600 18px "Segoe UI","Noto Sans JP",sans-serif';
+    ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.fillStyle='#eef4ff';ctx.shadowColor='rgba(80,180,255,.8)';ctx.shadowBlur=7;
+    let output=text;
+    while(ctx.measureText(output).width>width-34 && output.length>2) output=output.slice(0,-2)+'…';
+    ctx.fillText(output,x+width/2,y+h/2+.5);
+    ctx.restore();
+  }
+
+  function drawPlayStyles(){
+    const area=AREAS.playStyle;
+    let x=area.x,y=area.y;
+    const gapX=8,gapY=9;
+    for(const text of state.selectedStyles){
+      const width=measureTag(text);
+      if(x+width>area.x+area.w){x=area.x;y+=40+gapY;}
+      if(y+40>area.y+area.h) break;
+      drawTag(text,x,y,width,false);
+      x+=width+gapX;
+    }
+  }
+
+  async function drawMainJob(){
+    if(!state.mainJob) return;
+    const img=await loadImage(`assets/job-icons/${state.mainJob}.png`).catch(()=>null);
+    if(!img) return;
+    const a=AREAS.mainJob,size=Math.min(a.w,a.h)*.78;
+    ctx.save();ctx.shadowColor='rgba(91,88,255,.75)';ctx.shadowBlur=18;
+    ctx.drawImage(img,a.x+(a.w-size)/2,a.y+(a.h-size)/2,size,size);ctx.restore();
+  }
+
+  let drawToken=0;
+  async function draw(){
+    const token=++drawToken;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+    drawCharacter();
+    if(template.complete) ctx.drawImage(template,0,0,W,H);
+    await drawMainJob();
+    await drawJobs();
+    if(token!==drawToken) return;
+    drawPlayStyles();
+    drawFittedText(document.getElementById('info1').value,AREAS.info[0],{max:21});
+    drawFittedText(document.getElementById('info2').value,AREAS.info[1],{max:21});
+    drawFittedText(document.getElementById('info3').value,AREAS.info[2],{max:21});
+    drawFittedText(document.getElementById('playTime').value,AREAS.playTime1,{max:17,align:'center',shadowBlur:5});
+    drawFittedText(document.getElementById('loginTrend').value,AREAS.playTime2,{max:17,align:'center',shadowBlur:5});
+    drawFittedText(document.getElementById('homeWorld').value,AREAS.homeWorld,{max:20,shadowBlur:5});
+    drawFittedText(document.getElementById('dataCenter').value,AREAS.dc,{max:20,shadowBlur:5});
+    const credit=document.getElementById('credit').value;
+    if(credit){
+      ctx.save();ctx.font='13px "Segoe UI","Noto Sans JP",sans-serif';ctx.textAlign='right';ctx.textBaseline='middle';ctx.fillStyle='rgba(221,226,255,.82)';
+      ctx.fillText(credit,1598,889);ctx.restore();
+    }
+  }
+
+  function buildControls(){
+    const main=document.getElementById('mainJob');
+    const jobChecks=document.getElementById('jobChecks');
+    JOBS.forEach(([slug,name])=>{
+      main.insertAdjacentHTML('beforeend',`<option value="${slug}">${name}</option>`);
+      const label=document.createElement('label');label.className='check';
+      label.innerHTML=`<input type="checkbox" value="${slug}"><span>${name}</span>`;
+      const input=label.querySelector('input');
+      input.addEventListener('change',()=>{
+        if(input.checked){if(!state.selectedJobs.includes(slug))state.selectedJobs.push(slug);}
+        else state.selectedJobs=state.selectedJobs.filter(v=>v!==slug);
+        draw();
+      });
+      jobChecks.append(label);
+    });
+
+    const playChecks=document.getElementById('playStyleChecks');
+    PLAY_STYLES.forEach(name=>{
+      const label=document.createElement('label');label.className='check';
+      label.innerHTML=`<input type="checkbox" value="${name}"><span>${name}</span>`;
+      const input=label.querySelector('input');
+      input.addEventListener('change',()=>{
+        if(input.checked){if(!state.selectedStyles.includes(name))state.selectedStyles.push(name);}
+        else state.selectedStyles=state.selectedStyles.filter(v=>v!==name);
+        renderStyleOrder();draw();
+      });
+      playChecks.append(label);
+    });
+  }
+
+  function renderStyleOrder(){
+    const host=document.getElementById('selectedPlayStyles');host.innerHTML='';
+    state.selectedStyles.forEach(name=>{
+      const chip=document.createElement('div');chip.className='tag-chip';chip.textContent=name;chip.draggable=true;chip.dataset.name=name;
+      chip.addEventListener('dragstart',()=>{state.dragStyle=name;chip.classList.add('dragging');});
+      chip.addEventListener('dragend',()=>{state.dragStyle=null;chip.classList.remove('dragging');});
+      chip.addEventListener('dragover',e=>e.preventDefault());
+      chip.addEventListener('drop',e=>{
+        e.preventDefault();
+        const target=name,source=state.dragStyle;
+        if(!source||source===target)return;
+        const from=state.selectedStyles.indexOf(source),to=state.selectedStyles.indexOf(target);
+        state.selectedStyles.splice(from,1);state.selectedStyles.splice(to,0,source);
+        renderStyleOrder();draw();
+      });
+      host.append(chip);
+    });
+  }
+
+  function updateOutputs(){
+    document.getElementById('scaleOutput').value=Math.round(state.characterScale*100)+'%';
+    document.getElementById('brightnessOutput').value=state.brightness+'%';
+  }
+
+  document.getElementById('characterFile').addEventListener('change',e=>{
+    const file=e.target.files?.[0];if(!file)return;
+    const img=new Image();
+    img.onload=()=>{state.character=img;resetCharacter();URL.revokeObjectURL(img.src);};
+    img.onerror=()=>alert('画像を読み込めませんでした。');
+    img.src=URL.createObjectURL(file);
+  });
+
+  document.getElementById('characterScale').addEventListener('input',e=>{state.characterScale=Number(e.target.value);updateOutputs();draw();});
+  document.getElementById('characterBrightness').addEventListener('input',e=>{state.brightness=Number(e.target.value);updateOutputs();draw();});
+  document.getElementById('resetCharacter').addEventListener('click',resetCharacter);
+  document.getElementById('mainJob').addEventListener('change',e=>{state.mainJob=e.target.value;draw();});
+  ['info1','info2','info3','playTime','loginTrend','homeWorld','dataCenter','credit'].forEach(id=>document.getElementById(id).addEventListener('input',draw));
+
+  let dragging=false,last={x:0,y:0};
+  function pointerPos(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height};}
+  canvas.addEventListener('pointerdown',e=>{
+    if(!state.character)return;
+    const p=pointerPos(e),a=AREAS.character;
+    if(p.x<a.x||p.x>a.x+a.w||p.y<a.y||p.y>a.y+a.h)return;
+    dragging=true;last=p;canvas.classList.add('dragging');canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove',e=>{
+    if(!dragging)return;const p=pointerPos(e);state.characterX+=p.x-last.x;state.characterY+=p.y-last.y;last=p;draw();
+  });
+  function stopDrag(e){dragging=false;canvas.classList.remove('dragging');if(e.pointerId!==undefined&&canvas.hasPointerCapture(e.pointerId))canvas.releasePointerCapture(e.pointerId);}
+  canvas.addEventListener('pointerup',stopDrag);canvas.addEventListener('pointercancel',stopDrag);
+  canvas.addEventListener('wheel',e=>{
+    if(!state.character)return;const p=pointerPos(e),a=AREAS.character;
+    if(p.x<a.x||p.x>a.x+a.w||p.y<a.y||p.y>a.y+a.h)return;
+    e.preventDefault();
+    state.characterScale=Math.min(4,Math.max(.3,state.characterScale*(e.deltaY<0?1.05:.95)));
+    document.getElementById('characterScale').value=state.characterScale;updateOutputs();draw();
+  },{passive:false});
+
+  document.getElementById('downloadPng').addEventListener('click',async()=>{
+    await draw();
+    const world=(document.getElementById('homeWorld').value||'character').trim().replace(/[\\/:*?"<>|\s]+/g,'-');
+    const link=document.createElement('a');link.download=`ff14-cyberpunk-card-${world}.png`;link.href=canvas.toDataURL('image/png');link.click();
+  });
+
+  buildControls();
+  template.onload=draw;
+  preload().then(draw).catch(err=>{console.error(err);draw();});
+  updateOutputs();
+})();
+</script>
+</body>
+</html>
