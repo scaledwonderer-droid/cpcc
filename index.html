@@ -311,6 +311,57 @@
     return cells;
   }
 
+  function drawJobIconFrame(x,y,size,main=false){
+    const cut=Math.max(5,size*.13);
+    const inner=Math.max(2,size*.055);
+    ctx.save();
+
+    ctx.beginPath();
+    ctx.moveTo(x+cut,y);
+    ctx.lineTo(x+size-cut,y);
+    ctx.lineTo(x+size,y+cut);
+    ctx.lineTo(x+size,y+size-cut);
+    ctx.lineTo(x+size-cut,y+size);
+    ctx.lineTo(x+cut,y+size);
+    ctx.lineTo(x,y+size-cut);
+    ctx.lineTo(x,y+cut);
+    ctx.closePath();
+    ctx.fillStyle=main?'rgba(5,8,30,.82)':'rgba(4,7,25,.76)';
+    ctx.fill();
+
+    ctx.shadowColor=main?'rgba(126,76,255,.95)':'rgba(32,177,255,.8)';
+    ctx.shadowBlur=main?18:10;
+    ctx.lineWidth=main?3:2;
+    ctx.strokeStyle=main?'rgba(186,132,255,.95)':'rgba(75,205,255,.9)';
+    ctx.stroke();
+
+    ctx.shadowBlur=0;
+    ctx.beginPath();
+    ctx.moveTo(x+cut+inner,y+inner);
+    ctx.lineTo(x+size-cut-inner,y+inner);
+    ctx.lineTo(x+size-inner,y+cut+inner);
+    ctx.lineTo(x+size-inner,y+size-cut-inner);
+    ctx.lineTo(x+size-cut-inner,y+size-inner);
+    ctx.lineTo(x+cut+inner,y+size-inner);
+    ctx.lineTo(x+inner,y+size-cut-inner);
+    ctx.lineTo(x+inner,y+cut+inner);
+    ctx.closePath();
+    ctx.lineWidth=1;
+    ctx.strokeStyle=main?'rgba(62,222,255,.75)':'rgba(142,85,255,.7)';
+    ctx.stroke();
+
+    const mark=Math.max(3,size*.12);
+    ctx.lineWidth=Math.max(1.5,size*.025);
+    ctx.strokeStyle=main?'rgba(50,226,255,.95)':'rgba(223,54,255,.88)';
+    ctx.beginPath();
+    ctx.moveTo(x+size*.18,y+inner);
+    ctx.lineTo(x+size*.18+mark,y+inner);
+    ctx.moveTo(x+size-inner,y+size*.72);
+    ctx.lineTo(x+size-inner,y+size*.72+mark);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   async function drawJobs(){
     const n=state.selectedJobs.length;
     if(!n) return;
@@ -336,9 +387,12 @@
       if(!img) continue;
       const [cx,cy]=cells[i];
       const x=ox+cx*(iconSize+gap),y=oy+cy*(iconSize+gap);
+      drawJobIconFrame(x,y,iconSize,false);
+      const pad=iconSize*.15;
       ctx.save();
-      ctx.shadowColor='rgba(52,140,255,.65)';ctx.shadowBlur=10;
-      ctx.drawImage(img,x,y,iconSize,iconSize);
+      ctx.shadowColor='rgba(52,140,255,.7)';
+      ctx.shadowBlur=8;
+      ctx.drawImage(img,x+pad,y+pad,iconSize-pad*2,iconSize-pad*2);
       ctx.restore();
     }
   }
@@ -385,9 +439,17 @@
     if(!state.mainJob) return;
     const img=await loadImage(`assets/job-icons/${state.mainJob}.png`).catch(()=>null);
     if(!img) return;
-    const a=AREAS.mainJob,size=Math.min(a.w,a.h)*.78;
-    ctx.save();ctx.shadowColor='rgba(91,88,255,.75)';ctx.shadowBlur=18;
-    ctx.drawImage(img,a.x+(a.w-size)/2,a.y+(a.h-size)/2,size,size);ctx.restore();
+    const a=AREAS.mainJob;
+    const frameSize=Math.min(a.w,a.h)*.78;
+    const x=a.x+(a.w-frameSize)/2;
+    const y=a.y+(a.h-frameSize)/2;
+    drawJobIconFrame(x,y,frameSize,true);
+    const pad=frameSize*.14;
+    ctx.save();
+    ctx.shadowColor='rgba(91,88,255,.8)';
+    ctx.shadowBlur=16;
+    ctx.drawImage(img,x+pad,y+pad,frameSize-pad*2,frameSize-pad*2);
+    ctx.restore();
   }
 
   let drawToken=0;
