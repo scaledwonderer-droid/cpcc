@@ -82,15 +82,16 @@ const DISPLAY_MAPS={
   loginTrend:{'毎日':'Daily','週4～6日':'4–6 Days / Week','週2～3日':'2–3 Days / Week','週1日程度':'About 1 Day / Week','週末中心':'Weekends','不定期':'Irregular','エオ在住':'Eorzea Resident','休止気味':'On Hiatus'}
 };
 
-const A={character:{x:556,y:31,w:563,h:823},info:[{x:267,y:39,w:235,h:43},{x:45,y:116,w:251,h:42},{x:254,y:187,w:248,h:43}],playStyle:{x:45,y:321,w:521,h:487},job:{x:1147,y:87,w:475,h:446},progress:{x:1174,y:580,w:414,h:48},playTime1:{x:1227,y:717,w:345,h:31},playTime2:{x:1227,y:764,w:345,h:31},homeWorld:{x:67,y:865,w:365,h:35},dc:{x:465,y:865,w:240,h:35},credit:{x:735,y:854,w:864,h:53}};
+const A={character:{x:562,y:34,w:551,h:808},info:[{x:267,y:39,w:235,h:43},{x:45,y:116,w:251,h:42},{x:254,y:187,w:248,h:43}],playStyle:{x:45,y:321,w:521,h:487},job:{x:1147,y:87,w:475,h:446},progress:{x:1174,y:580,w:414,h:48},playTime1:{x:1227,y:717,w:345,h:31},playTime2:{x:1227,y:764,w:345,h:31},homeWorld:{x:67,y:865,w:365,h:35},dc:{x:465,y:865,w:240,h:35},credit:{x:735,y:854,w:864,h:53}};
 const state={character:null,characterX:0,characterY:0,characterScale:1,brightness:100,selectedJobs:[],selectedStyles:[],mainJob:'',dragStyle:null};
 const cache=new Map(),tags={};
 function loadImage(src){if(cache.has(src))return cache.get(src);const p=new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('画像を読み込めませんでした: '+src));i.src=src});cache.set(src,p);return p}
 async function preload(){await Promise.all(JOBS.map(([s])=>loadImage(`assets/job-icons/${s}.png`).catch(()=>null)));for(const n of ['left','center','right','left-active','center-active','right-active','accent-left','accent-right'])tags[n]=await loadImage(`assets/tags/tag-${n}.png`)}
-function fitScale(img,a){return Math.max(a.w/img.width,a.h/img.height)}
+const CHARACTER_OVERSCAN=24;
+function fitScale(img,a){return Math.max((a.w+CHARACTER_OVERSCAN*2)/img.width,(a.h+CHARACTER_OVERSCAN*2)/img.height)}
 function resetCharacter(){if(!state.character)return;state.characterScale=fitScale(state.character,A.character);state.characterX=A.character.x+A.character.w/2;state.characterY=A.character.y+A.character.h/2;el.characterScale.value=state.characterScale;updateOutputs();draw()}
 function displayValue(group,value){return (DISPLAY_MAPS[group]&&DISPLAY_MAPS[group][value])||value}
-const CHARACTER_POLYGON=[{x:578,y:32},{x:1097,y:32},{x:1118,y:53},{x:1118,y:830},{x:1096,y:852},{x:579,y:852},{x:557,y:830},{x:557,y:53}];
+const CHARACTER_POLYGON=[{x:579,y:34},{x:1096,y:34},{x:1113,y:51},{x:1113,y:826},{x:1096,y:843},{x:579,y:843},{x:562,y:826},{x:562,y:51}];
 function clipCharacterPath(){ctx.beginPath();ctx.moveTo(CHARACTER_POLYGON[0].x,CHARACTER_POLYGON[0].y);for(let i=1;i<CHARACTER_POLYGON.length;i++)ctx.lineTo(CHARACTER_POLYGON[i].x,CHARACTER_POLYGON[i].y);ctx.closePath()}
 function drawCharacter(){if(!state.character)return;const a=A.character,dw=state.character.width*state.characterScale,dh=state.character.height*state.characterScale;ctx.save();clipCharacterPath();ctx.clip();ctx.filter=`brightness(${state.brightness}%)`;ctx.drawImage(state.character,state.characterX-dw/2,state.characterY-dh/2,dw,dh);ctx.restore()}
 function drawCharacterFrame(){ctx.save();ctx.lineJoin='round';ctx.lineCap='round';ctx.shadowBlur=10;ctx.shadowColor='rgba(54,190,255,.55)';ctx.strokeStyle='rgba(95,215,255,.90)';ctx.lineWidth=2;clipCharacterPath();ctx.stroke();ctx.shadowBlur=7;ctx.shadowColor='rgba(222,78,255,.35)';ctx.strokeStyle='rgba(255,110,255,.55)';ctx.lineWidth=1;clipCharacterPath();ctx.stroke();ctx.restore()}
